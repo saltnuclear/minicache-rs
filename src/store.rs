@@ -26,6 +26,7 @@ pub trait Store: Send + Sync {
     /// 返回当前键数量
     fn len(&self) -> usize;
     /// 检查是否为空
+    #[allow(dead_code)]
     fn is_empty(&self) -> bool;
 }
 

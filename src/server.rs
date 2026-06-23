@@ -1,5 +1,5 @@
 use crate::protocol::{parse, Command};
-use crate::store::MemoryStore;
+use crate::store::{MemoryStore, Store};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
@@ -41,7 +41,7 @@ pub async fn run_server(addr: &str) -> std::io::Result<()> {
 /// 读取客户端发送的每行文本，解析为 Command，委托给 Store 执行，
 /// 并将结果写回客户端。遵循 DRY 原则：所有命令响应格式统一在这里组装。
 async fn handle_connection(
-    socket: TcpStream,
+    mut socket: TcpStream,
     store: Arc<Mutex<MemoryStore>>,
 ) -> std::io::Result<()> {
     let (reader, mut writer) = socket.split();
