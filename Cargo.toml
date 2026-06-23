@@ -1,12 +1,12 @@
 [package]
 name = "mini-cache"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["saltnuclear <1070832877@qq.com>"]
 description = "A high-performance in-memory cache server built with Rust & Tokio"
 
 [dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time"] }
 
 [[bin]]
 name = "mini-cache"

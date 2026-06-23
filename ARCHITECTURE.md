@@ -1,6 +1,6 @@
-# Mini-Cache 架构设计文档（Week 1 初稿）
+# Mini-Cache 架构设计文档（Week 2 更新）
 
-> **版本**：v0.1.0 — Week 1 骨架阶段  
+> **版本**：v0.2.0 — Week 2 异步并发阶段  
 > **目标**：记录架构设计思路，为后续迭代提供扩展蓝图。
 
 ---
@@ -20,16 +20,24 @@
 │  - SET: 写入内存 + 注册 TTL              │
 │  - GET: 读取内存 + 惰性删除检查           │
 │  - DEL: 删除键                           │
-│  - STATS: 返回键数量                      │
+│  - STATS: 聚合统计（QPS/命中/延迟）       │
 └──────────────┬──────────────────────────┘
                │
 ┌──────────────▼──────────────────────────┐
 │  存储层 (In-Memory Store)                │
-│  - HashMap<String, CacheEntry>           │
-│  - TTL 过期（惰性删除）                   │
+│  - RwLock<HashMap> 并发读写              │
+│  - TTL 最小堆（惰性删除 + 定期扫描）     │
 │  - Store trait 抽象接口                   │
+└──────────────┬──────────────────────────┘
+               │
+┌──────────────▼──────────────────────────┐
+│  统计层 (Stats)                          │
+│  - AtomicU64 无锁计数器                  │
+│  - 延迟分布直方图（<1ms, 1-5ms, 5-10ms） │
 └─────────────────────────────────────────┘
 ```
+
+---
 
 ## 2. 模块职责与 SOLID 原则
 
@@ -38,6 +46,7 @@
 | `protocol.rs` | 类 Redis 文本协议解析 | **SRP**：只负责解析，不涉及存储/网络 |
 | `store.rs` | 内存数据存储 + TTL 管理 | **OCP**：`Store` trait 预留替换实现（DashMap/RocksDB） |
 | `server.rs` | TCP 连接管理 + 命令分发 | **DIP**：依赖 `Store` 抽象，不依赖具体实现 |
+| `stats.rs` | 性能统计（QPS/命中/延迟） | **SRP**：只负责计数，不参与业务逻辑 |
 | `main.rs` | 程序入口，组装各模块 | — |
 
 ### 2.1 依赖倒置（DIP）
@@ -45,41 +54,35 @@
 `server.rs` 通过 `Store` trait 与存储层交互：
 
 ```rust
-// server 只关心 Store 接口，不关心底层是 HashMap 还是 DashMap
-pub async fn run_server(addr: &str) -> std::io::Result<()> {
-    let store = Arc::new(Mutex::new(MemoryStore::new()));
-    // ...
-}
+pub async fn run_server(
+    addr: &str,
+    store: Arc<dyn Store>, // 或泛型参数
+    stats: Arc<Stats>,
+) -> std::io::Result<()>
 ```
 
-Week 1 使用 `MemoryStore`（单线程 HashMap），Week 2 可直接替换为 `DashMapStore` 等实现，**server 代码无需改动**。
+Week 2 使用 `RwLockStore`，Week 3 可替换为 `DashMapStore`，**server 代码无需改动**。
 
 ### 2.2 开闭原则（OCP）
 
-协议解析通过 `Command` 枚举扩展新命令，无需修改 `parse()` 的核心匹配逻辑：
+协议解析通过 `Command` 枚举扩展新命令，无需修改 `parse()` 的核心匹配逻辑。
 
-```rust
-pub enum Command {
-    Set { key: String, value: String, ttl: Option<u64> },
-    Get { key: String },
-    Del { key: String },
-    Stats,
-    // 未来可扩展：MGET, EXISTS, INCR 等
-}
-```
+存储通过 `Store` trait 扩展新实现，无需修改 `server.rs` 的命令处理逻辑。
 
 ### 2.3 里氏替换原则（LSP）
 
-任何实现了 `Store` trait 的类型（`MemoryStore`、`DashMapStore`、`RocksDbStore`）都可以无缝替换使用。
+任何实现了 `Store` trait 的类型（`MemoryStore`、`RwLockStore`、`DashMapStore`）都可以无缝替换使用。
 
 ---
 
-## 3. 缓存 TTL 策略（Week 1 实现）
+## 3. 缓存 TTL 策略（Week 2 实现）
 
-Week 1 采用 **惰性删除（Lazy Deletion）**：
-- **读取时检查**：`GET` 命中键时，检查 `expires_at`；若已过期，立即删除并返回 `None`
-- **优点**：实现简单，不引入额外线程
-- **缺点**：过期键不访问时可能长期驻留内存
+Week 2 采用 **惰性删除 + 定期扫描** 的混合策略：
+
+- **惰性删除**：`GET` 命中键时，检查 `expires_at`；若已过期，立即删除并返回 `None`
+- **定期扫描**：后台 Task 每 100ms 扫描 TTL 最小堆顶，批量清理过期键
+- **优点**：既保证不返回脏数据，又防止内存泄漏
+- **缺点**：定期扫描引入少量锁竞争（`Mutex<BinaryHeap>`）
 
 ### 演进路线
 
@@ -91,27 +94,57 @@ Week 1 采用 **惰性删除（Lazy Deletion）**：
 
 ---
 
-## 4. 协程模型与并发设计
+## 4. 并发模型演进
 
-### 当前实现（Week 1）
+### Week 1：单线程 + 全局锁
 
-- 使用 **Tokio** 异步运行时，每连接 `tokio::spawn` 一个 Task
-- 存储层使用 `tokio::sync::Mutex<MemoryStore>` 保护单线程 HashMap
+```rust
+let store = Arc::new(Mutex::new(MemoryStore::new()));
+// 所有读写都竞争同一个 Mutex
+```
+
 - 并发模型：**多协程 + 全局锁**
+- 适用场景：百级并发
 
-### 演进路线
+### Week 2：读写分离锁
 
-| 阶段 | 存储层 | 并发模型 | 适用场景 |
-|------|--------|----------|----------|
-| Week 1 | `Mutex<HashMap>` | 多协程 + 全局锁 | 千级并发 |
-| Week 2 | `DashMap` | 无锁分片 | 万级并发 |
-| 未来 | 一致性哈希分片 | 多实例无锁 | 集群水平扩展 |
+```rust
+let store = Arc::new(RwLockStore::new());
+// GET 获取读锁（可并发），SET/DEL 获取写锁（独占）
+```
+
+- 并发模型：**多协程 + 读写分离锁**
+- 适用场景：千级并发
+
+### 未来：无锁分片
+
+```rust
+let store = Arc::new(DashMapStore::new());
+// DashMap 内部使用分片锁，读操作无锁
+```
+
+- 并发模型：**多协程 + 无锁分片**
+- 适用场景：万级并发
 
 ---
 
-## 5. 压力测试与性能基线（预留）
+## 5. Rust Async vs 多线程模型对比
 
-Week 1 产出可运行的骨架，性能基线待 Week 4 通过 `redis-benchmark` 或自定义 Rust 压测客户端获取。
+| 维度 | Tokio Async（本项目） | 传统多线程 |
+|------|----------------------|-----------|
+| 内存占用 | 每个 Task ~几 KB | 每个线程 ~1-2 MB |
+| 上下文切换 | 用户态，无内核开销 | 内核态，有开销 |
+| 锁粒度 | 更细，可跨 await 点释放 | 较粗，需手动管理 |
+| 适用场景 | IO 密集型（网络服务） | CPU 密集型（计算） |
+| 代码复杂度 | 需理解 async/await 和 Pin | 更直观 |
+
+本项目选择 Tokio async 的原因：缓存服务器是 **IO 密集型** 应用，每连接一个 Task 可以用极低的资源成本处理上万并发。
+
+---
+
+## 6. 压力测试与性能基线（预留）
+
+Week 2 产出可运行的并发版本，性能基线待 Week 4 通过 `redis-benchmark` 或自定义 Rust 压测客户端获取。
 
 目标指标：
 - QPS > 50k（单机）
@@ -120,7 +153,7 @@ Week 1 产出可运行的骨架，性能基线待 Week 4 通过 `redis-benchmark
 
 ---
 
-## 6. 水平扩展思路（预留）
+## 7. 水平扩展思路（预留）
 
 未来可通过 **一致性哈希** 将键空间分片到多个实例：
 - 每个实例拥有独立的 `DashMap` 存储
@@ -129,7 +162,7 @@ Week 1 产出可运行的骨架，性能基线待 Week 4 通过 `redis-benchmark
 
 ---
 
-## 7. 前端监控层（预留）
+## 8. 前端监控层（预留）
 
 Week 3 接入 Next.js + ECharts 监控面板：
 - 实时 QPS 曲线（WebSocket 推送）
