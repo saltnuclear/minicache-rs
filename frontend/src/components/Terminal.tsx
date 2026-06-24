@@ -4,6 +4,7 @@ import { useState } from "react";
 
 interface Props {
   apiBase: string;
+  darkMode?: boolean;
 }
 
 interface LogEntry {
@@ -13,7 +14,7 @@ interface LogEntry {
   ok: boolean;
 }
 
-export default function Terminal({ apiBase }: Props) {
+export default function Terminal({ apiBase, darkMode = false }: Props) {
   const [input, setInput] = useState("");
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
@@ -47,17 +48,18 @@ export default function Terminal({ apiBase }: Props) {
     if (e.key === "Enter") execute();
   };
 
-  return (
-    <div style={{ background: "#1e1e1e", color: "#d4d4d4", borderRadius: 8, padding: 16, fontFamily: "monospace" }}>
-      <h3 style={{ marginTop: 0, color: "#fff" }}>🖥️ Command Terminal</h3>
+  const bg = darkMode ? "#1e1e1e" : "#fff";
+  const color = darkMode ? "#d4d4d4" : "#333";
+  const inputBg = darkMode ? "#2d2d2d" : "#f0f0f0";
+  const inputBorder = darkMode ? "#444" : "#ccc";
+  const inputColor = darkMode ? "#fff" : "#333";
+  const placeholderColor = darkMode ? "#666" : "#999";
 
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          marginBottom: 12,
-        }}
-      >
+  return (
+    <div style={{ background: bg, color: color, borderRadius: 8, padding: 16, fontFamily: "monospace", transition: "background 0.3s, color 0.3s" }}>
+      <h3 style={{ marginTop: 0, color: darkMode ? "#fff" : "#333" }}>🖥️ Command Terminal</h3>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <span style={{ color: "#4ec9b0", fontWeight: 600, lineHeight: "32px" }}>127.0.0.1:6379&gt;</span>
         <input
           value={input}
@@ -66,13 +68,14 @@ export default function Terminal({ apiBase }: Props) {
           placeholder="SET key value EX 60"
           style={{
             flex: 1,
-            background: "#2d2d2d",
-            border: "1px solid #444",
+            background: inputBg,
+            border: `1px solid ${inputBorder}`,
             borderRadius: 4,
-            color: "#fff",
+            color: inputColor,
             padding: "4px 8px",
             fontFamily: "monospace",
             fontSize: 14,
+            transition: "background 0.3s, color 0.3s, border-color 0.3s",
           }}
         />
         <button
@@ -93,7 +96,7 @@ export default function Terminal({ apiBase }: Props) {
 
       <div style={{ maxHeight: 240, overflowY: "auto" }}>
         {logs.length === 0 && (
-          <div style={{ color: "#666", fontStyle: "italic" }}>No commands yet. Type one above...</div>
+          <div style={{ color: placeholderColor, fontStyle: "italic" }}>No commands yet. Type one above...</div>
         )}
         {logs.map((log, i) => (
           <div key={i} style={{ marginBottom: 8, fontSize: 13 }}>
