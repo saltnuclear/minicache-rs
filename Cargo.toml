@@ -1,6 +1,6 @@
 [package]
 name = "mini-cache"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["saltnuclear <1070832877@qq.com>"]
 description = "A high-performance in-memory cache server built with Rust & Tokio"
@@ -15,3 +15,4 @@ tower-http = { version = "0.5", features = ["cors"] }
 [[bin]]
 name = "mini-cache"
 path = "src/main.rs"
+
