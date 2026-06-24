@@ -1,6 +1,6 @@
 # Mini-Cache
 
-> 基于 Rust + Tokio 的高性能内存缓存服务器，支持类 Redis 协议，附带实时监控 Dashboard。
+> 基于 Rust + Tokio 的高性能内存缓存服务器，支持类 Redis 协议，附带实时监控面板。
 
 ![Rust](https://img.shields.io/badge/Rust-1.95+-orange)
 ![Tokio](https://img.shields.io/badge/Tokio-1.x-blue)
@@ -8,11 +8,11 @@
 
 ---
 
-## 🎯 项目定位
+## 项目定位
 
 一个月可完成的 Rust 全栈项目，展示：
 
-- **Rust 系统编程**：Ownership、Lifetime、Concurrency、Async/Await
+- **Rust 系统编程**：Ownership、Lifetime、并发、Async/Await
 - **网络编程**：TCP 协议解析、Socket 编程、高并发连接处理
 - **架构设计**：缓存淘汰策略、压力测试、水平扩展思路
 - **全栈交付**：前端实时监控界面（Vite + React + TypeScript）
@@ -21,7 +21,7 @@
 
 ---
 
-## 🏗️ 架构概览
+## 架构概览
 
 ```text
 ┌─────────────────────────────────────────┐
@@ -60,7 +60,7 @@
 
 ---
 
-## 🚀 快速启动
+## 快速启动
 
 ### 后端（Rust）
 
@@ -91,7 +91,7 @@ docker run -p 6379:6379 -p 8080:8080 minicache
 
 ---
 
-## 📡 支持的协议
+## 支持的协议
 
 | 命令 | 格式 | 说明 |
 |------|------|------|
@@ -102,7 +102,7 @@ docker run -p 6379:6379 -p 8080:8080 minicache
 
 ---
 
-## 📊 性能指标
+## 性能指标
 
 | 指标 | 目标 | 实测（单机） |
 |------|------|-------------|
@@ -116,38 +116,39 @@ docker run -p 6379:6379 -p 8080:8080 minicache
 
 ---
 
-## 📁 项目结构
+## 项目结构
 
 ```
 mini-cache/
 ├── Cargo.toml
-├── README.md
-├── ARCHITECTURE.md        # 架构设计文档
-├── BENCHMARK.md           # 压测报告
-├── Dockerfile             # 容器化部署
+├── README.md                  # 项目介绍
+├── ARCHITECTURE.md            # 架构设计文档
+├── BENCHMARK.md               # 压测报告
+├── Dockerfile                 # 容器化部署
 ├── src/
-│   ├── main.rs            # 入口：启动 TCP + HTTP
-│   ├── api.rs             # HTTP API (Axum)
-│   ├── server.rs          # TCP 服务器 (Tokio)
-│   ├── protocol.rs        # 协议解析
-│   ├── store.rs           # 存储引擎 (Store trait + RwLockStore)
-│   └── stats.rs           # 性能统计
+│   ├── main.rs                # 入口：启动 TCP + HTTP
+│   ├── api.rs                 # HTTP API (Axum)
+│   ├── server.rs              # TCP 服务器 (Tokio)
+│   ├── protocol.rs            # 协议解析
+│   ├── store.rs               # 存储引擎 (Store trait + RwLockStore)
+│   └── stats.rs               # 性能统计
 ├── examples/
-│   └── bench_client.rs    # 自定义压测客户端
+│   └── bench_client.rs        # 自定义压测客户端
 └── frontend/
     ├── package.json
     ├── vite.config.ts
-    ├── src/
-    │   ├── main.tsx
-    │   ├── App.tsx
-    │   └── components/
-    │       ├── Dashboard.tsx    # 监控面板
-    │       └── Terminal.tsx     # 命令行
+    ├── index.html
+    └── src/
+        ├── main.tsx
+        ├── App.tsx
+        └── components/
+            ├── Dashboard.tsx    # 监控面板
+            └── Terminal.tsx     # 命令行
 ```
 
 ---
 
-## 🧪 测试
+## 测试
 
 ```bash
 # 运行单元测试
@@ -159,13 +160,13 @@ cargo test
 
 ---
 
-## 📚 文档
+## 文档
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — 架构设计、SOLID 原则、并发模型
 - [BENCHMARK.md](./BENCHMARK.md) — 压测方法论、结果、瓶颈分析
 
 ---
 
-## 📜 License
+## 许可协议
 
 MIT
