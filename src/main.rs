@@ -1,3 +1,4 @@
+mod api;
 mod protocol;
 mod server;
 mod stats;
@@ -11,14 +12,15 @@ use store::RwLockStore;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    let addr = "127.0.0.1:6379";
-    println!("Mini-Cache v0.2.0 starting...");
-    println!("Week 2: RwLockStore + TTL cleanup + Stats");
+    let tcp_addr = "127.0.0.1:6379";
+    let http_addr = "0.0.0.0:8080";
+    println!("Mini-Cache v0.3.0 starting...");
+    println!("Week 3: HTTP API + Frontend Dashboard");
 
     let store = Arc::new(RwLockStore::new());
+    let stats = Arc::new(Stats::new());
 
     // 启动 TTL 定期清理后台任务
-    // 每 100ms 扫描最小堆顶，批量清理过期键
     let cleanup_store = Arc::clone(&store);
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_millis(100));
@@ -28,7 +30,25 @@ async fn main() -> std::io::Result<()> {
         }
     });
 
-    let stats = Arc::new(Stats::new());
-    println!("Listening on {}", addr);
-    run_server(addr, store, stats).await
+    // 启动 HTTP API 服务器
+    let api_store = Arc::clone(&store);
+    let api_stats = Arc::clone(&stats);
+    tokio::spawn(async move {
+        let app = api::create_router(api_store, api_stats);
+        let listener = match tokio::net::TcpListener::bind(http_addr).await {
+            Ok(l) => l,
+            Err(e) => {
+                eprintln!("Failed to bind HTTP API on {}: {}", http_addr, e);
+                return;
+            }
+        };
+        println!("HTTP API listening on {}", http_addr);
+        if let Err(e) = axum::serve(listener, app).await {
+            eprintln!("HTTP API error: {}", e);
+        }
+    });
+
+    // 启动 TCP 缓存服务器（主线程阻塞）
+    println!("TCP Server listening on {}", tcp_addr);
+    run_server(tcp_addr, store, stats).await
 }
