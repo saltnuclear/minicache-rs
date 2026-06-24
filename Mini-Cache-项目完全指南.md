@@ -153,23 +153,23 @@ async fn run_server(addr: &str) -> Result<(), Box<dyn Error>> {
 
 ## 五、前端设计（保留你的优势）
 
-### 页面1：实时监控面板
+### 页面1：实时监控面板（Dashboard.tsx）
 - **顶部卡片**：当前 QPS、总连接数、内存占用（估算）、键数量
 - **中部图表**：
-  - 折线图：最近 60 秒 QPS 曲线（WebSocket 实时推送）
+  - 折线图：最近 60 秒 QPS 曲线（HTTP 轮询，1秒间隔）
   - 柱状图：延迟分布（<1ms, 1-5ms, 5-10ms, >10ms）
 - **底部表格**：最近 50 条命令日志（时间、命令、耗时）
 
-### 页面2：命令行界面
+### 页面2：命令行界面（Terminal.tsx）
 - 输入框输入命令（如 `SET foo bar EX 10`）
 - 点击发送，通过 HTTP POST 到后端
 - 显示返回结果（类似 Redis CLI 体验）
 
-### 技术选型
-- Next.js 14 (App Router)
-- TypeScript
-- Ant Design / Tailwind CSS
-- ECharts 或 Recharts
+### 技术选型（Vite + React + TypeScript）
+- Vite 6（构建工具，极速 HMR，无需 SWC）
+- React 18 + TypeScript
+- Ant Design / Tailwind CSS（UI 框架）
+- ECharts 或 Recharts（图表库）
 - SWR 或原生 fetch（轮询）
 
 ---

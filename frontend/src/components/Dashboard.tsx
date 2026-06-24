@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Terminal from "./Terminal";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
+const API_BASE = ""; // Vite proxy 自动转发到 /api
 
 interface StatsData {
   commands: number;
