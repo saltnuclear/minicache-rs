@@ -106,10 +106,10 @@ docker run -p 6379:6379 -p 8080:8080 minicache
 
 | 指标 | 目标 | 实测（单机） |
 |------|------|-------------|
-| QPS (GET) | > 50k | ~55k |
-| QPS (SET) | > 50k | ~48k |
-| P50 延迟 | < 1ms | 0.6ms (GET) |
-| P99 延迟 | < 5ms | 3.5ms (GET) |
+| QPS (GET) | > 50k | **60,846** |
+| QPS (SET) | > 50k | **47,351** |
+| P50 延迟 | < 1ms | 1.36ms (SET) / 0.01ms (GET) |
+| P99 延迟 | < 5ms | 6.54ms (SET，回热后) |
 | 并发连接 | 1000+ | 1000 |
 
 详见 [BENCHMARK.md](./BENCHMARK.md)

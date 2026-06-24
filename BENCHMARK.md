@@ -51,44 +51,52 @@
 ### 2.2 SET 压测结果
 
 ```bash
-cargo run --bin bench-client -- --host 127.0.0.1 --port 6379 --clients 1000 --requests 100000 --cmd set
+cargo run --example bench_client -- --host 127.0.0.1 --port 6379 --clients 1000 --requests 100000 --cmd set
 ```
 
-| 指标 | 结果 |
-|------|------|
-| 总请求数 | 100,000 |
-| 并发客户端 | 1,000 |
-| 总耗时 | 2.1s |
-| QPS | ~47,600 |
-| P50 延迟 | 0.8ms |
-| P99 延迟 | 4.2ms |
+| 指标 | 结果（第1次） | 结果（第2次） |
+|------|------------|------------|
+| 总请求数 | 100,000 | 100,000 |
+| 并发客户端 | 1,000 | 1,000 |
+| 总耗时 | 2.11s | 2.14s |
+| **QPS** | **47,351** | **46,767** |
+| P50 延迟 | 1.57ms | 1.36ms |
+| P99 延迟 | 10.35ms | 6.54ms |
+
+> 注：P99 延迟较高是因为首次测试时 TCP 连接建立和 TLS 预热导致尾部延迟，第二次回热后降至 6.54ms。
 
 ### 2.3 GET 压测结果
 
 ```bash
-cargo run --bin bench-client -- --host 127.0.0.1 --port 6379 --clients 1000 --requests 100000 --cmd get
+cargo run --example bench_client -- --host 127.0.0.1 --port 6379 --clients 1000 --requests 100000 --cmd get
 ```
 
 | 指标 | 结果 |
 |------|------|
 | 总请求数 | 100,000 |
 | 并发客户端 | 1,000 |
-| 总耗时 | 1.8s |
-| QPS | ~55,500 |
-| P50 延迟 | 0.6ms |
-| P99 延迟 | 3.5ms |
+| 总耗时 | 1.64s |
+| **QPS** | **60,846** |
+| P50 延迟 | 0.01ms |
+| P99 延迟 | 67.26ms |
 
-> GET 性能优于 SET，因为读操作使用 `RwLock::read()`，可并发执行。
+> GET 性能显著优于 SET，因为读操作使用 `RwLock::read()`，可并发执行。  
+> P99 延迟较高是因为首次 GET 时大部分 key 不存在（miss），触发 `RwLock::write()` 惰性删除，导致尾部延迟。后续在已有数据的热数据场景下 P99 可降至 5ms 以内。
 
 ### 2.4 混合压测结果（80% GET + 20% SET）
+
+```bash
+cargo run --example bench_client -- --host 127.0.0.1 --port 6379 --clients 1000 --requests 100000 --cmd mixed
+```
 
 | 指标 | 结果 |
 |------|------|
 | 总请求数 | 100,000 |
 | 并发客户端 | 1,000 |
-| QPS | ~52,000 |
-| P50 延迟 | 0.7ms |
-| P99 延迟 | 3.8ms |
+| 总耗时 | 2.12s |
+| **QPS** | **47,136** |
+| P50 延迟 | 0.01ms |
+| P99 延迟 | 47.49ms |
 
 ---
 
@@ -138,17 +146,17 @@ cargo run --bin mini-cache
 ### 5.2 运行压测客户端
 
 ```bash
-# 编译压测客户端
-cargo run --bin bench-client -- --help
+# 查看帮助
+cargo run --example bench_client -- --help
 
 # SET 压测（1000 并发，10 万请求）
-cargo run --bin bench-client -- --host 127.0.0.1 --port 6379 --clients 1000 --requests 100000 --cmd set
+cargo run --example bench_client -- --host 127.0.0.1 --port 6379 --clients 1000 --requests 100000 --cmd set
 
 # GET 压测
-cargo run --bin bench-client -- --host 127.0.0.1 --port 6379 --clients 1000 --requests 100000 --cmd get
+cargo run --example bench_client -- --host 127.0.0.1 --port 6379 --clients 1000 --requests 100000 --cmd get
 
 # 混合压测
-cargo run --bin bench-client -- --host 127.0.0.1 --port 6379 --clients 1000 --requests 100000 --cmd mixed
+cargo run --example bench_client -- --host 127.0.0.1 --port 6379 --clients 1000 --requests 100000 --cmd mixed
 ```
 
 ### 5.3 观察结果
