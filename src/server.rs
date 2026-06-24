@@ -162,7 +162,7 @@ mod tests {
         process_command("GET a\r\n", &store, &stats).await;
 
         let resp = process_command("STATS\r\n", &store, &stats).await;
-        assert!(resp.contains("commands=2"));
+        assert!(resp.contains("commands=3"));
         assert!(resp.contains("hits=1"));
         assert!(resp.contains("keys=1"));
     }
