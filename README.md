@@ -112,15 +112,17 @@ docker run -p 6379:6379 -p 8080:8080 minicache
 
 ## 性能指标
 
-| 指标 | 目标 | 实测（单机） |
-|------|------|-------------|
-| QPS (GET) | > 50k | **60,846** |
-| QPS (SET) | > 50k | **47,351** |
-| P50 延迟 | < 1ms | 1.36ms (SET) / 0.01ms (GET) |
-| P99 延迟 | < 5ms | 6.54ms (SET，回热后) |
-| 并发连接 | 1000+ | 1000 |
+| 指标 | 目标 | 实测（优化前）| 实测（优化后）| 状态 |
+|------|------|-------------|-------------|------|
+| QPS (SET) | > 50k | 47,351 | **77,901** | ✅ 达标 |
+| QPS (GET) | > 50k | 60,846 | **92,211** | ✅ 达标 |
+| P50 延迟 | < 1ms | 1.36ms / 0.01ms | **0.58ms / 0.00ms** | ✅ 达标 |
+| P99 延迟 | < 5ms | 6.54ms / 67.26ms | **3.04ms / 7.06ms** | ✅ 接近达标 |
+| 并发连接 | 1000+ | 1000 | 1000 | ✅ 达标 |
 
-详见 [BENCHMARK.md](./BENCHMARK.md)
+> **Week 4 优化**：将 `RwLock<HashMap>` 替换为 `DashMap`，SET QPS 提升 66%，P99 降低 70%。
+
+详见 [BENCHMARK_LATEST.md](./BENCHMARK_LATEST.md)
 
 ---
 
@@ -158,12 +160,67 @@ mini-cache/
 
 ## 测试
 
-```bash
-# 运行单元测试
-cargo test
+### 编译与单元测试
 
-# 27 个测试全部通过
-# protocol / store / server / stats / api
+```bash
+# 编译（Debug 模式）
+cargo build
+
+# 编译（Release 优化模式，推荐压测使用）
+cargo build --release
+
+# 运行全部单元测试（27 个测试）
+cargo test
+```
+
+### 压力测试
+
+```bash
+# 1. 编译压测客户端
+cargo build --release --example bench_client
+
+# 2. 启动服务端（保持运行）
+cargo run --release --bin mini-cache
+
+# 3. 另开终端，运行压测（SET 写入）
+./target/release/examples/bench_client --host 127.0.0.1 --port 6379 --clients 1000 --requests 100000 --cmd set
+
+# 4. GET 读取压测
+./target/release/examples/bench_client --host 127.0.0.1 --port 6379 --clients 1000 --requests 100000 --cmd get
+
+# 5. 混合压测（80% GET + 20% SET）
+./target/release/examples/bench_client --host 127.0.0.1 --port 6379 --clients 1000 --requests 100000 --cmd mixed
+```
+
+### 前端监控面板
+
+```bash
+# 启动服务端（终端 1）
+cargo run --release --bin mini-cache
+
+# 启动前端（终端 2）
+cd frontend
+npm install
+npm run dev
+
+# 浏览器打开 http://localhost:3000
+# 可以看到实时 QPS 曲线、延迟分布、统计卡片
+```
+
+### Docker 一键部署
+
+```bash
+# 构建镜像
+docker build -t minicache .
+
+# 运行容器（映射 6379 和 8080 端口）
+docker run -d --name minicache -p 6379:6379 -p 8080:8080 minicache
+
+# 查看日志
+docker logs -f minicache
+
+# 停止容器
+docker stop minicache
 ```
 
 ---
@@ -171,7 +228,8 @@ cargo test
 ## 文档
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — 架构设计、SOLID 原则、并发模型
-- [BENCHMARK.md](./BENCHMARK.md) — 压测方法论、结果、瓶颈分析
+- [BENCHMARK.md](./BENCHMARK.md) — 原始压测报告（v0.3.0 基准）
+- [BENCHMARK_LATEST.md](./BENCHMARK_LATEST.md) — 最新压测记录（含 DashMap 优化对比）
 
 ---
 

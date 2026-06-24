@@ -1,5 +1,7 @@
+use dashmap::DashMap;
 use std::collections::{BinaryHeap, HashMap};
-use std::sync::{Mutex, RwLock};
+use std::sync::Mutex;
+use std::sync::RwLock;
 use std::time::{Duration, Instant};
 
 /// 缓存条目
@@ -31,6 +33,8 @@ pub trait Store: Send + Sync {
     /// 检查是否为空
     #[allow(dead_code)]
     fn is_empty(&self) -> bool;
+    /// 定期清理过期键（后台任务调用）
+    fn cleanup_expired(&self);
 }
 
 /// 基于标准库 HashMap 的单线程内存存储实现
@@ -96,6 +100,8 @@ impl Store for MemoryStore {
         let data = self.data.lock().unwrap();
         data.is_empty()
     }
+
+    fn cleanup_expired(&self) {}
 }
 
 /// 基于 `RwLock<HashMap>` 的并发内存存储实现
@@ -129,28 +135,6 @@ impl RwLockStore {
             entry.expires_at,
             Some(expires_at) if Instant::now() > expires_at
         )
-    }
-
-    /// 定期扫描：清理堆顶过期键
-    /// 
-    /// 由后台 Task 每 100ms 调用一次，批量清理过期键。
-    /// 同时检查键是否仍存在于 data 中（可能已被惰性删除或更新）。
-    pub fn cleanup_expired(&self) {
-        let mut queue = self.ttl_queue.lock().unwrap();
-        let now = Instant::now();
-
-        while let Some((std::cmp::Reverse(exp), _)) = queue.peek() {
-            if *exp > now {
-                break;
-            }
-            let (_, key) = queue.pop().unwrap();
-            let mut data = self.data.write().unwrap();
-            if let Some(entry) = data.get(&key) {
-                if self.is_expired(entry) {
-                    data.remove(&key);
-                }
-            }
-        }
     }
 }
 
@@ -207,6 +191,116 @@ impl Store for RwLockStore {
     fn is_empty(&self) -> bool {
         let data = self.data.read().unwrap();
         data.is_empty()
+    }
+
+    fn cleanup_expired(&self) {
+        let mut queue = self.ttl_queue.lock().unwrap();
+        let now = Instant::now();
+
+        while let Some((std::cmp::Reverse(exp), _)) = queue.peek() {
+            if *exp > now {
+                break;
+            }
+            let (_, key) = queue.pop().unwrap();
+            let mut data = self.data.write().unwrap();
+            if let Some(entry) = data.get(&key) {
+                if self.is_expired(entry) {
+                    data.remove(&key);
+                }
+            }
+        }
+    }
+}
+
+/// 基于 `DashMap` 的并发无锁存储实现
+///
+/// Week 4 优化：使用 `dashmap::DashMap` 替换 `RwLock<HashMap>`，
+/// 读操作完全无锁（分片级别），写操作只锁对应分片。
+/// 预期 SET QPS 提升 30~50%，P99 延迟降低 50%。
+///
+/// 保留 `Mutex<BinaryHeap>` 管理 TTL 过期队列，因为 TTL 清理频率
+/// 远低于业务操作，锁竞争极小。
+pub struct DashMapStore {
+    data: DashMap<String, CacheEntry>,
+    ttl_queue: Mutex<BinaryHeap<(std::cmp::Reverse<Instant>, String)>>,
+}
+
+impl DashMapStore {
+    pub fn new() -> Self {
+        Self {
+            data: DashMap::new(),
+            ttl_queue: Mutex::new(BinaryHeap::new()),
+        }
+    }
+
+    fn is_expired(&self, entry: &CacheEntry) -> bool {
+        matches!(
+            entry.expires_at,
+            Some(expires_at) if Instant::now() > expires_at
+        )
+    }
+}
+
+impl Default for DashMapStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Store for DashMapStore {
+    fn set(&self, key: String, value: String, ttl: Option<u64>) {
+        let expires_at = ttl.map(|secs| Instant::now() + Duration::from_secs(secs));
+        let entry = CacheEntry { value, expires_at };
+        self.data.insert(key.clone(), entry);
+
+        if let Some(exp) = expires_at {
+            let mut queue = self.ttl_queue.lock().unwrap();
+            queue.push((std::cmp::Reverse(exp), key));
+        }
+    }
+
+    fn get(&self, key: &str) -> Option<String> {
+        if let Some(entry) = self.data.get(key) {
+            if !self.is_expired(&entry) {
+                return Some(entry.value.clone());
+            }
+            // 过期了，先释放 Ref 再删除，避免死锁
+            drop(entry);
+            self.data.remove(key);
+        }
+        None
+    }
+
+    fn del(&self, key: &str) -> bool {
+        self.data.remove(key).is_some()
+    }
+
+    fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    fn cleanup_expired(&self) {
+        let mut queue = self.ttl_queue.lock().unwrap();
+        let now = Instant::now();
+
+        while let Some((std::cmp::Reverse(exp), _)) = queue.peek() {
+            if *exp > now {
+                break;
+            }
+            let (_, key) = queue.pop().unwrap();
+            let should_remove = if let Some(entry) = self.data.get(&key) {
+                self.is_expired(&entry)
+            } else {
+                false
+            };
+            if should_remove {
+                self.data.remove(&key);
+            }
+        }
     }
 }
 

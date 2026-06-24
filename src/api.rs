@@ -48,7 +48,7 @@ pub struct ExecuteResponse {
 /// 使用 State 注入共享的 Store 和 Stats 实例。
 /// CORS 配置允许前端 localhost:3000 访问（开发环境）。
 pub fn create_router(
-    store: Arc<RwLockStore>,
+    store: Arc<dyn Store>,
     stats: Arc<Stats>,
 ) -> Router {
     let app_state = AppState { store, stats };
@@ -62,7 +62,7 @@ pub fn create_router(
 
 #[derive(Clone)]
 struct AppState {
-    store: Arc<RwLockStore>,
+    store: Arc<dyn Store>,
     stats: Arc<Stats>,
 }
 
@@ -88,7 +88,7 @@ async fn post_execute(
     State(state): State<AppState>,
     Json(req): Json<ExecuteRequest>,
 ) -> Result<Json<ExecuteResponse>, StatusCode> {
-    let response = process_api_command(&req.command, &state.store, &state.stats);
+    let response = process_api_command(&req.command, &*state.store, &state.stats);
     Ok(Json(ExecuteResponse { result: response }))
 }
 
@@ -98,7 +98,7 @@ async fn post_execute(
 /// 遵循 DRY 原则：核心逻辑共享，只是调用上下文不同。
 fn process_api_command(
     line: &str,
-    store: &Arc<RwLockStore>,
+    store: &dyn Store,
     stats: &Arc<Stats>,
 ) -> String {
     stats.record_command();
@@ -149,7 +149,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_api_stats() {
-        let store = Arc::new(RwLockStore::new());
+        let store: Arc<dyn Store> = Arc::new(RwLockStore::new());
         let stats = Arc::new(Stats::new());
 
         store.set("k".to_string(), "v".to_string(), None);
@@ -169,7 +169,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_api_execute_set_get() {
-        let store = Arc::new(RwLockStore::new());
+        let store: Arc<dyn Store> = Arc::new(RwLockStore::new());
         let stats = Arc::new(Stats::new());
 
         let req = ExecuteRequest {

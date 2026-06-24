@@ -17,7 +17,7 @@ use tokio::net::{TcpListener, TcpStream};
 /// 存储逻辑委托给 `RwLockStore`，统计委托给 `Stats`。
 pub async fn run_server(
     addr: &str,
-    store: Arc<RwLockStore>,
+    store: Arc<dyn Store>,
     stats: Arc<Stats>,
 ) -> std::io::Result<()> {
     let listener = TcpListener::bind(addr).await?;
@@ -43,7 +43,7 @@ pub async fn run_server(
 /// 处理单个 TCP 连接
 async fn handle_connection(
     mut socket: TcpStream,
-    store: Arc<RwLockStore>,
+    store: Arc<dyn Store>,
     stats: Arc<Stats>,
 ) -> std::io::Result<()> {
     let (reader, mut writer) = socket.split();
@@ -57,7 +57,7 @@ async fn handle_connection(
             break;
         }
 
-        let response = process_command(&line, &store, &stats).await;
+        let response = process_command(&line, &*store, &stats).await;
         writer.write_all(response.as_bytes()).await?;
         writer.flush().await?;
     }
@@ -71,8 +71,8 @@ async fn handle_connection(
 /// 同时记录命令延迟分布（微秒级精度）。
 async fn process_command(
     line: &str,
-    store: &Arc<RwLockStore>,
-    stats: &Arc<Stats>,
+    store: &dyn Store,
+    stats: &Stats,
 ) -> String {
     let start = Instant::now();
     stats.record_command();
@@ -128,40 +128,40 @@ mod tests {
 
     #[tokio::test]
     async fn test_process_command_set_get() {
-        let store = Arc::new(RwLockStore::new());
+        let store: Arc<dyn Store> = Arc::new(RwLockStore::new());
         let stats = Arc::new(Stats::new());
 
-        let resp = process_command("SET foo bar\r\n", &store, &stats).await;
+        let resp = process_command("SET foo bar\r\n", &*store, &stats).await;
         assert_eq!(resp, "+OK\r\n");
 
-        let resp = process_command("GET foo\r\n", &store, &stats).await;
+        let resp = process_command("GET foo\r\n", &*store, &stats).await;
         assert_eq!(resp, "$3\r\nbar\r\n");
 
-        let resp = process_command("GET noexist\r\n", &store, &stats).await;
+        let resp = process_command("GET noexist\r\n", &*store, &stats).await;
         assert_eq!(resp, "$-1\r\n");
     }
 
     #[tokio::test]
     async fn test_process_command_del() {
-        let store = Arc::new(RwLockStore::new());
+        let store: Arc<dyn Store> = Arc::new(RwLockStore::new());
         let stats = Arc::new(Stats::new());
-        process_command("SET k v\r\n", &store, &stats).await;
+        process_command("SET k v\r\n", &*store, &stats).await;
 
-        let resp = process_command("DEL k\r\n", &store, &stats).await;
+        let resp = process_command("DEL k\r\n", &*store, &stats).await;
         assert_eq!(resp, ":1\r\n");
 
-        let resp = process_command("DEL k\r\n", &store, &stats).await;
+        let resp = process_command("DEL k\r\n", &*store, &stats).await;
         assert_eq!(resp, ":0\r\n");
     }
 
     #[tokio::test]
     async fn test_process_command_stats() {
-        let store = Arc::new(RwLockStore::new());
+        let store: Arc<dyn Store> = Arc::new(RwLockStore::new());
         let stats = Arc::new(Stats::new());
-        process_command("SET a 1\r\n", &store, &stats).await;
-        process_command("GET a\r\n", &store, &stats).await;
+        process_command("SET a 1\r\n", &*store, &stats).await;
+        process_command("GET a\r\n", &*store, &stats).await;
 
-        let resp = process_command("STATS\r\n", &store, &stats).await;
+        let resp = process_command("STATS\r\n", &*store, &stats).await;
         assert!(resp.contains("commands=3"));
         assert!(resp.contains("hits=1"));
         assert!(resp.contains("keys=1"));
@@ -169,7 +169,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_concurrent_commands() {
-        let store = Arc::new(RwLockStore::new());
+        let store: Arc<dyn Store> = Arc::new(RwLockStore::new());
         let stats = Arc::new(Stats::new());
 
         let mut handles = vec![];
@@ -179,7 +179,7 @@ mod tests {
             handles.push(tokio::spawn(async move {
                 let resp = process_command(
                     &format!("SET key{} value{}\r\n", i, i),
-                    &store,
+                    &*store,
                     &stats,
                 )
                 .await;

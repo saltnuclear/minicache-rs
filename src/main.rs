@@ -8,16 +8,16 @@ use std::sync::Arc;
 use std::time::Duration;
 use server::run_server;
 use stats::Stats;
-use store::RwLockStore;
+use store::{DashMapStore, Store};
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     let tcp_addr = "127.0.0.1:6379";
     let http_addr = "0.0.0.0:8080";
-    println!("Mini-Cache v0.3.0 starting...");
-    println!("Week 3: HTTP API + Frontend Dashboard");
+    println!("Mini-Cache v0.4.0 starting...");
+    println!("Week 4: DashMap Store Optimization");
 
-    let store = Arc::new(RwLockStore::new());
+    let store: Arc<dyn Store> = Arc::new(DashMapStore::new());
     let stats = Arc::new(Stats::new());
 
     // 启动 TTL 定期清理后台任务
