@@ -5,6 +5,7 @@
 ![Rust](https://img.shields.io/badge/Rust-1.95+-orange)
 ![Tokio](https://img.shields.io/badge/Tokio-1.x-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
+![CI](https://github.com/saltnuclear/minicache-rs/actions/workflows/ci.yml/badge.svg)
 
 ---
 
