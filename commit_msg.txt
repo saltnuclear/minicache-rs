@@ -1,0 +1,4 @@
+ci: 修复 Docker 构建，移除对 Cargo.lock 的依赖
+
+Dockerfile 中 `COPY Cargo.lock` 在 CI 环境下失败，因为 `.gitignore` 忽略了该文件。
+修复方式：改为 `touch Cargo.lock`，让 `cargo build` 在容器中自动生成。

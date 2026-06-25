@@ -11,7 +11,7 @@
 
 ## 项目定位
 
-一个月可完成的 Rust 全栈项目，展示：
+基于 Rust + Tokio 的高性能内存缓存服务器，展示：
 
 - **Rust 系统编程**：Ownership、Lifetime、并发、Async/Await
 - **网络编程**：TCP 协议解析、Socket 编程、高并发连接处理
