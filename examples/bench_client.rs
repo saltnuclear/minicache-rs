@@ -17,7 +17,10 @@ async fn main() -> std::io::Result<()> {
 
     println!("🚀 Mini-Cache Bench Client");
     println!("Target: {}:{}", args.host, args.port);
-    println!("Clients: {} | Requests: {} | Command: {}", args.clients, args.requests, args.cmd);
+    println!(
+        "Clients: {} | Requests: {} | Command: {}",
+        args.clients, args.requests, args.cmd
+    );
     println!("----------------------------------------");
 
     let total_requests = Arc::new(AtomicU64::new(0));

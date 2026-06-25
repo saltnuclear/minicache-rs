@@ -1,7 +1,7 @@
 use std::fmt;
 
 /// 支持的缓存命令枚举
-/// 
+///
 /// 遵循单一职责原则（SRP）：protocol 模块只负责协议解析，
 /// 不涉及存储或网络逻辑。
 #[derive(Debug, PartialEq)]
@@ -42,13 +42,13 @@ impl fmt::Display for Command {
 }
 
 /// 解析类 Redis 文本协议
-/// 
+///
 /// 支持格式：
 /// - SET key value [EX ttl]\r\n
 /// - GET key\r\n
 /// - DEL key\r\n
 /// - STATS\r\n
-/// 
+///
 /// 遵循开闭原则（OCP）：通过枚举扩展新命令，无需修改解析器核心逻辑。
 pub fn parse(input: &str) -> Result<Command, ParseError> {
     let trimmed = input.trim();
@@ -168,13 +168,23 @@ mod tests {
     #[test]
     fn test_parse_get() {
         let cmd = parse("GET mykey").unwrap();
-        assert_eq!(cmd, Command::Get { key: "mykey".to_string() });
+        assert_eq!(
+            cmd,
+            Command::Get {
+                key: "mykey".to_string()
+            }
+        );
     }
 
     #[test]
     fn test_parse_del() {
         let cmd = parse("DEL mykey").unwrap();
-        assert_eq!(cmd, Command::Del { key: "mykey".to_string() });
+        assert_eq!(
+            cmd,
+            Command::Del {
+                key: "mykey".to_string()
+            }
+        );
     }
 
     #[test]

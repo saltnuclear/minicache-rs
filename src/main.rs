@@ -4,10 +4,10 @@ mod server;
 mod stats;
 mod store;
 
-use std::sync::Arc;
-use std::time::Duration;
 use server::run_server;
 use stats::Stats;
+use std::sync::Arc;
+use std::time::Duration;
 use store::{DashMapStore, Store};
 
 #[tokio::main]

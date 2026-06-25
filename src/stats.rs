@@ -1,10 +1,10 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// 性能统计模块
-/// 
+///
 /// 使用 `AtomicU64` 实现无锁计数，避免多线程竞争。
 /// 所有操作使用 `Ordering::Relaxed`，在保证正确性的同时最大化性能。
-/// 
+///
 /// 遵循单一职责原则（SRP）：只负责计数和快照，不参与业务逻辑。
 /// 遵循接口隔离原则（ISP）：只暴露统计操作，隐藏内部实现。
 #[derive(Default)]
@@ -106,9 +106,9 @@ mod tests {
     #[test]
     fn test_latency_histogram() {
         let stats = Stats::new();
-        stats.record_latency(500);   // 0-1ms
-        stats.record_latency(2000);  // 1-5ms
-        stats.record_latency(7000);  // 5-10ms
+        stats.record_latency(500); // 0-1ms
+        stats.record_latency(2000); // 1-5ms
+        stats.record_latency(7000); // 5-10ms
         stats.record_latency(15000); // >10ms
 
         let hist = stats.latency_histogram();

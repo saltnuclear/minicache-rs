@@ -7,12 +7,12 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
 /// 启动 TCP 服务器
-/// 
+///
 /// Week 2 演进：
 /// - 存储层从 `Mutex<MemoryStore>` 替换为 `RwLockStore`（读写分离锁）
 /// - 新增 `Stats` 统计模块，每个命令实时记录延迟和命中
 /// - 每连接独立 spawn Task，利用 Tokio 协程模型实现轻量级并发
-/// 
+///
 /// 遵循单一职责原则（SRP）：server 只负责网络连接管理和协议分发，
 /// 存储逻辑委托给 `RwLockStore`，统计委托给 `Stats`。
 pub async fn run_server(
@@ -66,14 +66,10 @@ async fn handle_connection(
 }
 
 /// 解析并执行命令，返回响应字符串
-/// 
+///
 /// 遵循 DRY 原则：所有命令响应格式统一在这里组装。
 /// 同时记录命令延迟分布（微秒级精度）。
-async fn process_command(
-    line: &str,
-    store: &dyn Store,
-    stats: &Stats,
-) -> String {
+async fn process_command(line: &str, store: &dyn Store, stats: &Stats) -> String {
     let start = Instant::now();
     stats.record_command();
 
@@ -82,18 +78,16 @@ async fn process_command(
             store.set(key, value, ttl);
             "+OK\r\n".to_string()
         }
-        Ok(Command::Get { key }) => {
-            match store.get(&key) {
-                Some(value) => {
-                    stats.record_hit();
-                    format!("${}\r\n{}\r\n", value.len(), value)
-                }
-                None => {
-                    stats.record_miss();
-                    "$-1\r\n".to_string()
-                }
+        Ok(Command::Get { key }) => match store.get(&key) {
+            Some(value) => {
+                stats.record_hit();
+                format!("${}\r\n{}\r\n", value.len(), value)
             }
-        }
+            None => {
+                stats.record_miss();
+                "$-1\r\n".to_string()
+            }
+        },
         Ok(Command::Del { key }) => {
             let removed = store.del(&key);
             format!(":{}\r\n", if removed { 1 } else { 0 })
@@ -177,12 +171,8 @@ mod tests {
             let store = Arc::clone(&store);
             let stats = Arc::clone(&stats);
             handles.push(tokio::spawn(async move {
-                let resp = process_command(
-                    &format!("SET key{} value{}\r\n", i, i),
-                    &*store,
-                    &stats,
-                )
-                .await;
+                let resp =
+                    process_command(&format!("SET key{} value{}\r\n", i, i), &*store, &stats).await;
                 assert_eq!(resp, "+OK\r\n");
             }));
         }

@@ -47,10 +47,7 @@ pub struct ExecuteResponse {
 ///
 /// 使用 State 注入共享的 Store 和 Stats 实例。
 /// CORS 配置允许前端 localhost:3000 访问（开发环境）。
-pub fn create_router(
-    store: Arc<dyn Store>,
-    stats: Arc<Stats>,
-) -> Router {
+pub fn create_router(store: Arc<dyn Store>, stats: Arc<Stats>) -> Router {
     let app_state = AppState { store, stats };
 
     Router::new()
@@ -96,11 +93,7 @@ async fn post_execute(
 ///
 /// 与 server.rs 的 process_command 保持一致，但使用同步 API（无 async）。
 /// 遵循 DRY 原则：核心逻辑共享，只是调用上下文不同。
-fn process_api_command(
-    line: &str,
-    store: &dyn Store,
-    stats: &Arc<Stats>,
-) -> String {
+fn process_api_command(line: &str, store: &dyn Store, stats: &Arc<Stats>) -> String {
     stats.record_command();
 
     match parse(line) {
@@ -108,18 +101,16 @@ fn process_api_command(
             store.set(key, value, ttl);
             "+OK".to_string()
         }
-        Ok(Command::Get { key }) => {
-            match store.get(&key) {
-                Some(value) => {
-                    stats.record_hit();
-                    format!("{}", value)
-                }
-                None => {
-                    stats.record_miss();
-                    "(nil)".to_string()
-                }
+        Ok(Command::Get { key }) => match store.get(&key) {
+            Some(value) => {
+                stats.record_hit();
+                format!("{}", value)
             }
-        }
+            None => {
+                stats.record_miss();
+                "(nil)".to_string()
+            }
+        },
         Ok(Command::Del { key }) => {
             let removed = store.del(&key);
             format!("{}", if removed { 1 } else { 0 })

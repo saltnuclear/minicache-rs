@@ -5,7 +5,7 @@ use std::sync::RwLock;
 use std::time::{Duration, Instant};
 
 /// 缓存条目
-/// 
+///
 /// 封装了值和可选的过期时间，隐藏内部实现细节。
 #[derive(Debug, Clone)]
 pub struct CacheEntry {
@@ -14,12 +14,12 @@ pub struct CacheEntry {
 }
 
 /// 存储引擎抽象接口
-/// 
+///
 /// 遵循依赖倒置原则（DIP）：上层模块（server）依赖此抽象接口，
 /// 而非具体的存储实现。也遵循接口隔离原则（ISP）：只暴露必要的操作方法。
-/// 
+///
 /// 遵循里氏替换原则（LSP）：任何实现了 Store 的类型都可以在 server 中互换使用。
-/// 
+///
 /// Week 2 关键演进：所有方法签名改为 `&self`，支持并发读写。
 pub trait Store: Send + Sync {
     /// 设置键值对，可选 TTL（秒）
@@ -38,7 +38,7 @@ pub trait Store: Send + Sync {
 }
 
 /// 基于标准库 HashMap 的单线程内存存储实现
-/// 
+///
 /// Week 1 参考实现保留，使用 `Mutex<HashMap>` 保持接口兼容。
 /// 适用于测试和对比场景。
 #[allow(dead_code)]
@@ -105,13 +105,13 @@ impl Store for MemoryStore {
 }
 
 /// 基于 `RwLock<HashMap>` 的并发内存存储实现
-/// 
+///
 /// Week 2 核心实现：使用 `std::sync::RwLock` 实现读写分离，
 /// 配合 `Mutex<BinaryHeap>` 管理 TTL 过期队列，实现惰性删除 + 定期扫描的混合策略。
-/// 
+///
 /// 相比 `Mutex<HashMap>`：读操作可以并发，写操作独占锁。
 /// 相比 `DashMap`：实现简单，不需要额外依赖，适合千级并发场景。
-/// 
+///
 /// 遵循单一职责原则（SRP）：只负责内存数据的增删查和 TTL 管理。
 /// 遵循开闭原则（OCP）：`Store` trait 接口稳定，底层实现可继续演进。
 pub struct RwLockStore {
@@ -398,11 +398,7 @@ mod tests {
         for i in 0..10 {
             let store = std::sync::Arc::clone(&store);
             handles.push(thread::spawn(move || {
-                store.set(
-                    format!("key{}", i),
-                    format!("value{}", i),
-                    None,
-                );
+                store.set(format!("key{}", i), format!("value{}", i), None);
             }));
         }
 
