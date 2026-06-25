@@ -1,6 +1,6 @@
 use crate::protocol::{parse, Command};
 use crate::stats::Stats;
-use crate::store::{RwLockStore, Store};
+use crate::store::Store;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -119,6 +119,7 @@ async fn process_command(line: &str, store: &dyn Store, stats: &Stats) -> String
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::store::RwLockStore;
 
     #[tokio::test]
     async fn test_process_command_set_get() {

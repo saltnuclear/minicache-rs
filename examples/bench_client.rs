@@ -147,7 +147,7 @@ fn build_command(cmd: &str, key: &str, _idx: u64) -> String {
         "set" => format!("SET {} value{}\r\n", key, _idx),
         "get" => format!("GET {}\r\n", key),
         "mixed" => {
-            if _idx % 5 == 0 {
+            if _idx.is_multiple_of(5) {
                 format!("SET {} value{}\r\n", key, _idx)
             } else {
                 format!("GET {}\r\n", key)

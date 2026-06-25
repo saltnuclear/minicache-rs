@@ -164,16 +164,16 @@ impl Store for RwLockStore {
             let data = self.data.read().unwrap();
             match data.get(key) {
                 Some(entry) if !self.is_expired(entry) => {
-                    return Some(entry.value.clone());
+                    Some(entry.value.clone())
                 }
                 Some(_) => {
                     // 过期了，释放读锁，获取写锁来删除
                     drop(data);
                     let mut data = self.data.write().unwrap();
                     data.remove(key);
-                    return None;
+                    None
                 }
-                None => return None,
+                None => None,
             }
         }
     }

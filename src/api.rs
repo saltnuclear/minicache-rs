@@ -1,6 +1,6 @@
 use crate::protocol::{parse, Command};
 use crate::stats::Stats;
-use crate::store::{RwLockStore, Store};
+use crate::store::Store;
 use axum::{
     extract::State,
     http::StatusCode,
@@ -19,7 +19,6 @@ use std::sync::Arc;
 ///
 /// 遵循单一职责原则（SRP）：api 只负责 HTTP 协议层转换，
 /// 命令执行逻辑委托给 store/stats，避免在 handler 中写业务逻辑。
-
 /// 统计响应结构
 #[derive(Serialize)]
 pub struct StatsResponse {
@@ -104,7 +103,7 @@ fn process_api_command(line: &str, store: &dyn Store, stats: &Arc<Stats>) -> Str
         Ok(Command::Get { key }) => match store.get(&key) {
             Some(value) => {
                 stats.record_hit();
-                format!("{}", value)
+                value.to_string()
             }
             None => {
                 stats.record_miss();
@@ -137,6 +136,7 @@ fn process_api_command(line: &str, store: &dyn Store, stats: &Arc<Stats>) -> Str
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::store::RwLockStore;
 
     #[tokio::test]
     async fn test_api_stats() {
