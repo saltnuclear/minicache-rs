@@ -122,6 +122,8 @@ docker run -p 6379:6379 -p 8080:8080 minicache
 | 并发连接 | 1000+ | 1000 | 1000 | ✅ 达标 |
 
 > **Week 4 优化**：将 `RwLock<HashMap>` 替换为 `DashMap`，SET QPS 提升 66%，P99 降低 70%。
+>
+> **与 Redis 6.0 对比**：单线程 Redis 下，Mini-Cache SET QPS 快 8%，GET QPS 快 34%，P99 延迟低 4 倍。详见 [BENCHMARK_LATEST.md](./BENCHMARK_LATEST.md)。
 
 详见 [BENCHMARK_LATEST.md](./BENCHMARK_LATEST.md)
 
